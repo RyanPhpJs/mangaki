@@ -1,0 +1,345 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider          = "mysql"
+  url               = env("DATABASE_URL")
+  shadowDatabaseUrl = env("DATABASE_SHADOWN")
+}
+
+model User {
+  id                String  @id @default(uuid())
+  name              String  @db.VarChar(255)
+  email             String  @db.VarChar(255)
+  password          String  @db.VarChar(255)
+  avatar            String? @db.VarChar(255)
+  torii_token       String? @db.VarChar(255)
+  is_confirmed_mail Boolean @default(false)
+  is_moderator      Boolean @default(false)
+  can_comments      Boolean @default(true)
+
+  my_chapthers ChapterTranslated[]
+  comments     ChapterComments[]
+}
+
+model UserConfirmation {
+  id      String   @id @default(uuid())
+  user_id String
+  token   String   @db.VarChar(255)
+  end_at  DateTime
+}
+
+model Tag {
+  id    String   @id
+  name  String   @db.VarChar(255)
+  group TagGroup
+}
+
+model MangaRelation {
+  id        String       @id
+  manga_id  String
+  type      RelationType
+  name      String       @db.VarChar(255)
+  imageUrl  String?
+  biography Json         @default("{}")
+
+  // url
+  twitter   String?
+  pixiv     String?
+  melonBook String?
+  fanBox    String?
+  booth     String?
+  nicoVideo String?
+  skeb      String?
+  fantia    String?
+  tumblr    String?
+  youtube   String?
+  weibo     String?
+  naver     String?
+  namicomi  String?
+  website   String?
+
+  manga Manga @relation(fields: [manga_id], references: [id])
+}
+
+enum RelationType {
+  artist
+  author
+}
+
+model Manga {
+  id                String        @id
+  cover_art         String?
+  status            MangaStatus
+  title             String        @db.VarChar(5000)
+  altTitles         Json          @default("[]")
+  originalLanguage  String        @default("JA")
+  avaliableLanguage Json          @default("[]")
+  cpReset           Boolean       @default(false) // se o cp. number reseta a cada novo volume
+  description       Json          @default("{}")
+  isLocked          Boolean       @default(false)
+  rating            ContentRating @default(SAFE)
+  year              Int           @default(2025)
+  publicDemographic String
+  tags              Json          @default("[]")
+
+  // Links
+  anilist_id     String? // https://anilist.co/manga/$ID @d
+  animeplanet_id String? // https://www.anime-planet.com/manga/$ID
+  mal_id         String? // https://myanimelist.net/manga/$ID
+  kitsu_id       String? // https://kitsu.app/manga/$ID
+  mangaupdate_id String? // https://www.mangaupdates.com/series.html?id=$ID
+
+  // BUY
+  bookwalker_url String? @db.VarChar(1000) // https://bookwalker.jp/$ID
+  amazon_url     String? @db.VarChar(1000) // $ID
+  ebookjp_url    String? @db.VarChar(1000) // $ID
+  raw_url        String? @db.VarChar(1000) // $ID
+
+  relations MangaRelation[]
+  chapters  Chapter[]
+}
+
+model Scan {
+  id               String        @id
+  name             String        @default("Scan Without name") @db.VarChar(255)
+  contact_email    String?       @db.VarChar(255)
+  description      String        @default("")
+  discord          String?
+  website          String?       @db.VarChar(255)
+  twitter          String?       @db.VarChar(255)
+  focused_language Json          @default("[]")
+  official         Boolean       @default(false)
+  verified         Boolean       @default(false)
+  chapthers        ChapterScan[]
+}
+
+model Chapter {
+  id           String  @id
+  manga_id     String
+  volume       String  @default("")
+  chapther     Float   @default(0)
+  flags        String?
+  title        String  @default("") @db.VarChar(255)
+  language     String  @default("EN")
+  pages        Int     @default(0)
+  publishAt    String  @default("")
+  external_url String?
+
+  manga           Manga             @relation(fields: [manga_id], references: [id])
+  images          ChapterImage[]
+  ChapterComments ChapterComments[]
+  scans           ChapterScan[]
+}
+
+model ChapterScan {
+  chapter_id String
+  scan_id    String
+
+  chapter Chapter @relation(fields: [chapter_id], references: [id])
+  scan    Scan    @relation(fields: [scan_id], references: [id])
+
+  @@id([chapter_id, scan_id])
+}
+
+model ChapterImage {
+  id          String   @id @default(uuid())
+  chapther_id String
+  delete_at   DateTime
+  base_url    String
+  data_images Json     @default("[]")
+  low_images  Json     @default("[]")
+
+  chapther Chapter @relation(fields: [chapther_id], references: [id])
+}
+
+model ChapterTranslated {
+  id              String @id @default(uuid())
+  chapther_id     String
+  target_language String
+  user_id         String
+  pages           Json   @default("[]")
+
+  user User @relation(fields: [user_id], references: [id])
+}
+
+model ChapterComments {
+  id              Int        @id @default(autoincrement())
+  user_id         String
+  chapter_id      String
+  text            String     @db.LongText
+  spoiler         Boolean    @default(false)
+  createdAt       DateTime   @default(now())
+  is_blocked_type BlockType?
+
+  chapter Chapter @relation(fields: [chapter_id], references: [id])
+  user    User    @relation(fields: [user_id], references: [id])
+}
+
+enum BlockType {
+  MODERATOR
+  AI
+}
+
+enum TagGroup {
+  CONTENT
+  FORMAT
+  GENRE
+  THEME
+}
+
+enum MangaStatus {
+  ongoing
+  completed
+  hiatus
+  cancelled
+}
+
+enum ContentRating {
+  SAFE
+  SUGESTIVE
+  EROTICA
+}
+
+enum LanguageCode {
+  AA
+  AB
+  AF
+  AM
+  AR
+  AS
+  AY
+  AZ
+  BA
+  BE
+  BG
+  BH
+  BI
+  BN
+  BO
+  BR
+  CA
+  CO
+  CS
+  CY
+  DA
+  DE
+  DZ
+  EL
+  EN
+  EO
+  ES
+  ET
+  EU
+  FA
+  FI
+  FJ
+  FO
+  FR
+  FY
+  GA
+  GD
+  GL
+  GN
+  GU
+  HA
+  HI
+  HR
+  HU
+  HY
+  IA
+  IE
+  IK
+  IN
+  IS
+  IT
+  IW
+  JA
+  JI
+  JW
+  KA
+  KK
+  KL
+  KM
+  KN
+  KO
+  KS
+  KU
+  KY
+  LA
+  LN
+  LO
+  LT
+  LV
+  MG
+  MI
+  MK
+  ML
+  MN
+  MO
+  MR
+  MS
+  MT
+  MY
+  NA
+  NE
+  NL
+  NO
+  OC
+  OM
+  OR
+  PA
+  PL
+  PS
+  PT
+  QU
+  RM
+  RN
+  RO
+  RU
+  RW
+  SA
+  SD
+  SG
+  SH
+  SI
+  SK
+  SL
+  SM
+  SN
+  SO
+  SQ
+  SR
+  SS
+  ST
+  SU
+  SV
+  SW
+  TA
+  TE
+  TG
+  TH
+  TI
+  TK
+  TL
+  TN
+  TO
+  TR
+  TS
+  TT
+  TW
+  UG
+  UK
+  UR
+  UZ
+  VI
+  VO
+  WO
+  XH
+  YI
+  YO
+  ZA
+  ZH
+  ZU
+}

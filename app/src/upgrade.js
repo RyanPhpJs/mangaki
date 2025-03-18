@@ -1,0 +1,3 @@
+class UpgradeManager {
+    loader(path) {}
+}
