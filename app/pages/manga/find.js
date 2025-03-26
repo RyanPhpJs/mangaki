@@ -1,12 +1,10 @@
-import mangadex from "../../src/mangadex";
 import z from "zod";
 import { decode } from "../../src/id";
 import db from "../../../db";
 
-const Query = z.object({
+export const schema = z.object({
     page: z.coerce.number().min(1).default(1),
     limit: z.coerce.number().min(10).max(30).default(20),
-
     title: z.string().optional(),
     authors: z.array(z.string()).optional(),
     artists: z.array(z.string()).optional(),
@@ -43,8 +41,11 @@ const where = {
     }),
 };
 
-export async function loader({ query, json }) {
-    const q = Query.parse(query);
+/**
+ * @type {import("../../../routes").LoaderFunction<typeof schema>}
+ */
+export async function loader(proc) {
+    const q = proc.data;
 
     const queryConsult = {};
     if (q.title) queryConsult.title = where.contains(q.title);
@@ -77,10 +78,5 @@ export async function loader({ query, json }) {
         skip: (q.page - 1) * q.limit,
     });
 
-    return json(result);
-    //    const result2 = await mangadex.manga.find({
-    //      title: query.title,
-    //      includes: ["cover_art"],
-    //    });
-    //    json(result);
+    return proc.success(result);
 }

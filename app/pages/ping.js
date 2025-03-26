@@ -1,6 +1,8 @@
-export function loader({ json }) {
-    json({
-        status: true,
+/**
+ * @type {import("../../routes").LoaderFunction<typeof schema>}
+ */
+export function loader(res) {
+    res.success({
         message: "Pong!",
     });
 }

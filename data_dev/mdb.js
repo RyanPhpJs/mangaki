@@ -2,7 +2,8 @@ import { createReadStream } from "fs";
 import { createInterface } from "readline";
 import { inspect } from "util";
 import db from "../db";
-import { encode } from "../app/src/id";
+import { encode, decode } from "../app/src/id";
+import { Client } from "../lib/mangadex/Client";
 
 function getLanguageDetails(languageObj) {
     const keys = Object.keys(languageObj);
@@ -38,52 +39,77 @@ function getLanguage(obj) {
 }
 
 const rl = createInterface({
-    input: createReadStream("data_dev/manga_result.jsonl"),
+    input: createReadStream("data_dev/manga_ids.jsonl"),
 });
 let i = 0;
 let skipRemaing = 0;
 const relationsMany = [];
 const mangaDatas = [];
-const rel = [];
 console.log("Iniciado");
 async function insertData() {
-    const res = await db.manga.createMany({
-        data: mangaDatas,
-        skipDuplicates: true,
-    });
-    await db.mangaMember.createMany({
+    let count = 0;
+    for (const data of mangaDatas) {
+        if (
+            !(await db.manga.findFirst({
+                where: {
+                    id: data.id,
+                },
+            }))
+        ) {
+            const res = await db.manga.create({
+                data: data,
+            });
+            console.log("Inserido " + res.id);
+            count++;
+        }
+    }
+    await db.mangaRelation.createMany({
         data: relationsMany,
         skipDuplicates: true,
     });
-    await db.mangaRelation.createMany({
-        data: rel,
-        skipDuplicates: true,
-    });
-    rel.splice(0, rel.length);
     relationsMany.splice(0, relationsMany.length);
     mangaDatas.splice(0, mangaDatas.length);
     console.clear();
-    console.log("+" + res.count + " Mangas inseridos (" + i + "/83013)");
+    console.log("+" + count + " Mangas inseridos (" + i + "/83013)");
 }
-for await (const line of rl) {
-    i++;
-    if (skipRemaing > 0) {
-        skipRemaing--;
-        continue;
+/**
+ * @template {any} K
+ * @param {K} arr
+ * @param {Number} chunkSize
+ * @returns {K[]}
+ */
+function splitArrayIntoChunks(arr, chunkSize) {
+    let result = [];
+    for (let i = 0; i < arr.length; i += chunkSize) {
+        result.push(arr.slice(i, i + chunkSize));
     }
-
-    /**
-     * @type {import("../lib/mangadex/types/Schema").MangaSchema}
-     */
-    const json = JSON.parse(line);
+    return result;
+}
+const Ids = [];
+for await (const line of rl) {
+    Ids.push(decode(line));
+}
+//const searchIds = splitArrayIntoChunks(Ids, 80);
+const result = [];
+const client = new Client();
+//for (const searchId of Ids) {
+const response = await client.manga.search({
+    ids: Ids,
+    limit: 100,
+    includes: ["cover_art", "author", "artist"],
+});
+console.log(response.length);
+//}
+for (const json of response) {
     const mangaId = encode(json.id);
 
     for (const item of json.relationships.filter((e) =>
         ["author", "artist"].includes(e.type)
     )) {
-        if (item.attributes) {
+        if (item.attributes)
             relationsMany.push({
                 id: encode(item.id),
+                manga_id: mangaId,
                 type: item.type,
                 name: item.attributes.name,
                 imageUrl: item.attributes.imageUrl,
@@ -103,11 +129,6 @@ for await (const line of rl) {
                 namicomi: item.attributes.namicomi,
                 website: item.attributes.website,
             });
-            rel.push({
-                manga_id: mangaId,
-                member_id: encode(item.id),
-            });
-        }
     }
 
     if (json.attributes) {

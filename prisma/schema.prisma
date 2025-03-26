@@ -36,9 +36,8 @@ model Tag {
   group TagGroup
 }
 
-model MangaRelation {
+model MangaMember {
   id        String       @id
-  manga_id  String
   type      RelationType
   name      String       @db.VarChar(255)
   imageUrl  String?
@@ -60,7 +59,17 @@ model MangaRelation {
   namicomi  String?
   website   String?
 
-  manga Manga @relation(fields: [manga_id], references: [id])
+  relations MangaRelation[]
+}
+
+model MangaRelation {
+  member_id String
+  manga_id  String
+
+  manga  Manga       @relation(fields: [manga_id], references: [id])
+  member MangaMember @relation(fields: [member_id], references: [id])
+
+  @@id([member_id, manga_id])
 }
 
 enum RelationType {

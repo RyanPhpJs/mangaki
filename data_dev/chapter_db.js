@@ -4,10 +4,6 @@ import { inspect } from "util";
 import db from "../db";
 import { encode } from "../app/src/id";
 
-const $stream = createWriteStream("chapter_index.jsonl", {
-    flags: "a",
-}); // 1
-
 function getChapterData(chapter) {
     const text = String(chapter || "")
         .toLowerCase()
@@ -39,10 +35,10 @@ function getChapterData(chapter) {
 const MAX = 20000;
 
 const rl = createInterface({
-    input: createReadStream("data/chapter_result.jsonl"),
+    input: createReadStream("data_dev/chapter_result2.jsonl"),
 });
 let i = 0;
-let skipRemaing = 0;
+let skipRemaing = 2200000;
 const relationsMany = [];
 const chapterData = [];
 const scanRelation = [];
@@ -68,9 +64,6 @@ async function insertData() {
             data: scanRelation,
             skipDuplicates: true,
         });
-    if (rows.count < MAX) {
-        $stream.write(`${i - MAX}\n`);
-    }
 
     relationsMany.splice(0, relationsMany.length);
     scanRelation.splice(0, scanRelation.length);
